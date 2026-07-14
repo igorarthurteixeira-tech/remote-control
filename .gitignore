@@ -1,0 +1,13 @@
+dist/
+build/
+__pycache__/
+*.spec
+*.pyc
+*.ico
+*.apk
+*.pem
+*.pdf
+server.log
+static/icon-*.png
+static/qr*.png
+static/favicon.ico

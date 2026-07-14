@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Remote Control</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Remote">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #111827;
+      color: #f3f4f6;
+      font-family: system-ui, sans-serif;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── Media bar ── */
+    .media-bar {
+      display: flex;
+      background: #1f2937;
+      padding: 8px;
+      padding-top: max(60px, env(safe-area-inset-top));
+      gap: 6px;
+      border-bottom: 1px solid #374151;
+    }
+    .media-bar button {
+      flex: 1;
+      background: #374151;
+      border: none;
+      color: #f3f4f6;
+      border-radius: 8px;
+      font-size: 20px;
+      padding: 10px 4px;
+      cursor: pointer;
+    }
+    .media-bar button:active { background: #6d28d9; }
+    #settingsBtn { font-size: 18px; }
+
+    /* ── Apps bar ── */
+    .apps-bar {
+      display: flex;
+      justify-content: center;
+      padding: 6px 8px;
+      gap: 8px;
+    }
+    .app-btn {
+      width: 64px; height: 64px;
+      border: none; border-radius: 14px;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      color: #fff; flex-shrink: 0;
+    }
+    .app-btn .app-icon { font-size: 22px; line-height: 1; }
+    .app-btn:active { filter: brightness(0.8); }
+
+    /* ── Browser picker ── */
+    .browser-picker {
+      display: flex; gap: 4px;
+      background: #111827; border-radius: 10px; padding: 4px;
+    }
+    .browser-picker button {
+      flex: 1; background: transparent; border: none;
+      color: #9ca3af; padding: 8px 4px; border-radius: 7px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+    }
+    .browser-picker button.active { background: #7c3aed; color: #fff; font-weight: 600; }
+
+    /* ── Shortcut manager ── */
+    .shortcut-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid #374151;
+    }
+    .shortcut-item:last-child { border-bottom: none; }
+    .shortcut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .shortcut-info { flex: 1; min-width: 0; }
+    .shortcut-name { font-size: 13px; color: #d1d5db; }
+    .shortcut-url  { font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .shortcut-toggle {
+      background: #374151; border: none; color: #9ca3af;
+      border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; flex-shrink: 0;
+    }
+    .shortcut-toggle.on { background: #14532d; color: #6ee7b7; }
+    .shortcut-toggle:disabled { opacity: 0.4; cursor: default; }
+    .shortcut-delete {
+      background: none; border: none; color: #6b7280;
+      font-size: 15px; cursor: pointer; padding: 2px 4px; flex-shrink: 0;
+    }
+    .shortcut-delete:active { color: #ef4444; }
+    .custom-form {
+      display: none; flex-direction: column; gap: 8px;
+      background: #111827; border-radius: 10px; padding: 12px; margin-top: 4px;
+    }
+    .custom-form input {
+      background: #1f2937; border: 1px solid #374151; color: #f3f4f6;
+      border-radius: 8px; padding: 10px 12px; font-size: 14px; outline: none;
+    }
+    .custom-form input:focus { border-color: #7c3aed; }
+    .custom-form-row { display: flex; gap: 8px; }
+    .custom-form-row button {
+      flex: 1; border: none; border-radius: 8px; padding: 10px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-save   { background: #7c3aed; color: #fff; }
+    .btn-cancel { background: #374151; color: #9ca3af; }
+    .add-shortcut-btn {
+      width: 100%; background: #1f2937; border: 1px dashed #4b5563;
+      color: #9ca3af; border-radius: 10px; padding: 10px;
+      font-size: 13px; cursor: pointer; margin-top: 6px;
+    }
+    .add-shortcut-btn:active { background: #374151; }
+
+    /* ── Mouse row ── */
+    .mouse-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px 8px 0;
+      height: 86px;
+    }
+    .mouse-btn {
+      flex: 2;
+      background: #1f2937;
+      border: 1px solid #374151;
+      color: #f3f4f6;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      cursor: pointer;
+    }
+    .mouse-btn:active { background: #6d28d9; border-color: #6d28d9; }
+    .scroll-wheel {
+      position: absolute;
+      width: 52px;
+      height: 84px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(45, 55, 72, 0.82);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-radius: 26px;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      perspective: 120px;
+      z-index: 10;
+    }
+    .scroll-drum {
+      width: 28px;
+      height: 56px;
+      background: linear-gradient(to bottom, #374151 0%, #4b5563 50%, #374151 100%);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: 6px 0;
+      will-change: transform;
+    }
+    .scroll-drum .line {
+      height: 2px;
+      background: rgba(156, 163, 175, 0.85);
+      margin: 0 4px;
+      border-radius: 1px;
+    }
+
+    /* ── Trackpad ── */
+    #trackpad {
+      flex: 1;
+      background: #1a1f2e;
+      margin: 8px;
+      border-radius: 14px;
+      border: 1px solid #374151;
+      touch-action: none;
+      cursor: crosshair;
+      position: relative;
+    }
+
+    /* ── Keys panel ── */
+    .keys-panel {
+      background: #1f2937;
+      padding: 8px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      border-top: 1px solid #374151;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .keys-row { display: flex; gap: 5px; }
+    .keys-row button {
+      flex: 1;
+      background: #374151;
+      border: none;
+      color: #f3f4f6;
+      border-radius: 7px;
+      padding: 10px 2px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .keys-row button:active { background: #6d28d9; }
+
+    /* ── Type row ── */
+    .type-row { display: flex; gap: 6px; }
+    #typeInput {
+      flex: 1;
+      background: #111827;
+      border: 1px solid #374151;
+      color: #f3f4f6;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 16px;
+      outline: none;
+    }
+    #typeInput:focus { border-color: #6d28d9; }
+    #sendBtn {
+      background: #6d28d9;
+      border: none;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    #sendBtn:active { background: #5b21b6; }
+
+    /* ── Settings overlay ── */
+    #settingsOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    #settingsOverlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    /* ── Settings panel ── */
+    #settingsPanel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #1f2937;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 20px 32px;
+      z-index: 101;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+    #settingsPanel.open { transform: translateY(0); }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .settings-header span {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f3f4f6;
+    }
+    .settings-header button {
+      background: #374151;
+      border: none;
+      color: #9ca3af;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .settings-header button:active { background: #6d28d9; color: #fff; }
+
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .setting-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      color: #d1d5db;
+    }
+    .setting-label .value {
+      background: #374151;
+      color: #a78bfa;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      min-width: 42px;
+      text-align: center;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #374151;
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      background: #7c3aed;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid #c4b5fd;
+    }
+
+    /* ── Install button ── */
+    .install-btn {
+      width: 100%;
+      background: #7c3aed;
+      border: none;
+      color: #fff;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    .install-btn:active { background: #5b21b6; }
+    .install-btn:disabled { background: #374151; color: #6b7280; cursor: default; }
+
+    .install-steps {
+      flex-direction: column;
+      gap: 8px;
+      background: #111827;
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .install-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #d1d5db;
+      line-height: 1.4;
+    }
+    .install-step .num {
+      min-width: 22px;
+      height: 22px;
+      background: #7c3aed;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    /* ── APK download ── */
+    .apk-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: #065f46;
+      border: 1px solid #059669;
+      color: #6ee7b7;
+      border-radius: 10px;
+      padding: 13px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .apk-btn:active { background: #047857; }
+  </style>
+</head>
+<body>
+
+  <!-- Media -->
+  <div class="media-bar">
+    <button onclick="key('prevtrack')">⏮</button>
+    <button onclick="key('playpause')">⏯</button>
+    <button onclick="key('nexttrack')">⏭</button>
+    <button onclick="key('volumedown')">🔉</button>
+    <button onclick="key('volumeup')">🔊</button>
+    <button onclick="key('volumemute')">🔇</button>
+    <button id="settingsBtn" onclick="openSettings()">⚙️</button>
+  </div>
+
+  <!-- Mouse buttons -->
+  <div class="mouse-row">
+    <button class="mouse-btn" id="leftBtn">Clique<br>Esquerdo</button>
+    <button class="mouse-btn" id="rightBtn">Clique<br>Direito</button>
+  </div>
+
+  <!-- Trackpad -->
+  <div id="trackpad">
+    <div id="scrollWheel" class="scroll-wheel">
+      <div id="scrollDrum" class="scroll-drum">
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+        <div class="line"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Apps shortcuts (acima do teclado) -->
+  <div id="appsBar" class="apps-bar" style="display:none"></div>
+
+  <!-- Keys + Type -->
+  <div class="keys-panel">
+    <div class="keys-row">
+      <button onclick="key('esc')">Esc</button>
+      <button onclick="key('tab')">Tab</button>
+      <button onclick="key('win')">Win</button>
+      <button onclick="key('alt+tab')">Alt+Tab</button>
+      <button onclick="key('ctrl+c')">Ctrl+C</button>
+      <button onclick="key('ctrl+v')">Ctrl+V</button>
+      <button onclick="key('backspace')">⌫</button>
+      <button onclick="key('enter')">↵ Enter</button>
+    </div>
+    <div class="keys-row">
+      <button onclick="key('left')">◀</button>
+      <button onclick="key('up')">▲</button>
+      <button onclick="key('down')">▼</button>
+      <button onclick="key('right')">▶</button>
+    </div>
+    <div class="type-row">
+      <input id="typeInput" type="text" placeholder="Digite e envie para o PC..." autocomplete="off">
+      <button id="sendBtn" onclick="sendText()">Enviar</button>
+    </div>
+  </div>
+
+
+  <!-- Settings overlay -->
+  <div id="settingsOverlay" onclick="closeSettings()"></div>
+
+  <!-- Settings panel -->
+  <div id="settingsPanel">
+    <div class="settings-header">
+      <span>⚙️ Ajustes</span>
+      <button onclick="closeSettings()">✕</button>
+    </div>
+
+    <button onclick="reconnect()" style="width:100%;background:#1f2937;border:1px solid #374151;color:#f3f4f6;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;text-align:left;">
+      🔌 Trocar servidor
+    </button>
+
+    <div class="setting-item">
+      <div class="setting-label">
+        <span>Sensibilidade do cursor</span>
+        <span class="value" id="cursorVal">2.2</span>
+      </div>
+      <input type="range" id="cursorSlider" min="0.5" max="15" step="0.1" value="2.2"
+             oninput="updateCursorSens(this.value)">
+    </div>
+
+    <div class="setting-item">
+      <div class="setting-label">
+        <span>Sensibilidade do scroll</span>
+        <span class="value" id="scrollVal">3</span>
+      </div>
+      <input type="range" id="scrollSlider" min="1" max="100" step="1" value="3"
+             oninput="updateScrollSens(this.value)">
+    </div>
+
+    <div class="setting-item">
+      <div class="setting-label"><span>Atalhos de apps</span><span class="value" id="shortcutCount">0/5</span></div>
+      <div id="shortcutsList"></div>
+      <div class="custom-form" id="customForm">
+        <input id="customName" type="text" placeholder="Nome (ex: Twitch)">
+        <input id="customUrl"  type="url"  placeholder="URL (ex: https://twitch.tv)">
+        <div class="custom-form-row">
+          <button class="btn-save"   onclick="saveCustomShortcut()">Salvar</button>
+          <button class="btn-cancel" onclick="cancelCustomShortcut()">Cancelar</button>
+        </div>
+      </div>
+      <button class="add-shortcut-btn" id="addShortcutBtn" onclick="showAddShortcut()">+ Adicionar personalizado</button>
+    </div>
+
+    <div class="setting-item">
+      <div class="setting-label"><span>Navegador</span></div>
+      <div class="browser-picker" id="browserPicker">
+        <button data-browser="default">Padrão</button>
+        <button data-browser="chrome">Chrome</button>
+        <button data-browser="edge">Edge</button>
+        <button data-browser="firefox">Firefox</button>
+      </div>
+    </div>
+
+    <div class="setting-item" id="apkSection" style="display:none">
+      <div class="setting-label">
+        <span>Instalar app Android</span>
+      </div>
+      <a id="apkBtn" class="apk-btn" href="/app.apk">
+        ⬇ Baixar RemoteControl.apk
+      </a>
+      <div class="install-steps" style="display:flex">
+        <div class="install-step"><span class="num">1</span>Toque em "Baixar" acima</div>
+        <div class="install-step"><span class="num">2</span>Abra o arquivo .apk baixado</div>
+        <div class="install-step"><span class="num">3</span>Permita "Instalar de fontes desconhecidas" se pedido</div>
+        <div class="install-step"><span class="num">4</span>Instale e abra o Remote Control</div>
+      </div>
+    </div>
+
+    <div class="setting-item" id="installSection">
+      <div class="setting-label">
+        <span>Instalar como app</span>
+      </div>
+      <button class="install-btn" id="installBtn" onclick="installApp()">
+        Adicionar à tela inicial
+      </button>
+      <div class="install-steps" id="installSteps" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // ── Configurações (localStorage) ──────────────────────────
+    let cursorSens = parseFloat(localStorage.getItem('rc_cursor_sens') || '2.2');
+    let scrollAmt  = parseInt(localStorage.getItem('rc_scroll_amt')   || '3');
+
+    // ── Atalhos de apps ────────────────────────────────────────
+    const MAX_ACTIVE = 5;
+    const PRESETS = [
+      { id: 'netflix', name: 'Netflix', url: 'https://www.netflix.com',   color: '#e50914', icon: 'N',  preset: true },
+      { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com',   color: '#ff0000', icon: '▶', preset: true },
+      { id: 'spotify', name: 'Spotify', url: 'https://open.spotify.com', color: '#1db954', icon: '♫', preset: true },
+    ];
+
+    function loadShortcuts() {
+      const saved = localStorage.getItem('rc_shortcuts');
+      if (saved) return JSON.parse(saved);
+      return PRESETS.map(p => ({ ...p, active: true }));
+    }
+    function saveShortcuts(list) { localStorage.setItem('rc_shortcuts', JSON.stringify(list)); }
+
+    function renderAppsBar() {
+      const bar    = document.getElementById('appsBar');
+      const active = loadShortcuts().filter(s => s.active).slice(0, MAX_ACTIVE);
+      if (!active.length) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      bar.innerHTML = active.map(s =>
+        `<button class="app-btn" style="background:${s.color}" onclick="launch('${s.url}')"><span class="app-icon">${s.icon}</span><span>${s.name}</span></button>`
+      ).join('');
+    }
+
+    function renderShortcutSettings() {
+      const list    = loadShortcuts();
+      const actCnt  = list.filter(s => s.active).length;
+      document.getElementById('shortcutCount').textContent = `${actCnt}/${MAX_ACTIVE}`;
+      document.getElementById('shortcutsList').innerHTML = list.map((s, i) => `
+        <div class="shortcut-item">
+          <span class="shortcut-dot" style="background:${s.color}"></span>
+          <div class="shortcut-info">
+            <div class="shortcut-name">${s.name}</div>
+            <div class="shortcut-url">${s.url}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+            <button class="shortcut-delete" onclick="moveShortcut(${i},-1)" ${i===0?'disabled':''} style="font-size:12px;padding:1px 5px">▲</button>
+            <button class="shortcut-delete" onclick="moveShortcut(${i},1)" ${i===list.length-1?'disabled':''} style="font-size:12px;padding:1px 5px">▼</button>
+          </div>
+          <button class="shortcut-toggle ${s.active ? 'on' : ''}"
+                  onclick="toggleShortcut(${i})"
+                  ${!s.active && actCnt >= MAX_ACTIVE ? 'disabled' : ''}>
+            ${s.active ? 'Visível' : 'Oculto'}
+          </button>
+          ${!s.preset ? `<button class="shortcut-delete" onclick="deleteShortcut(${i})">✕</button>` : ''}
+        </div>`).join('');
+    }
+
+    function toggleShortcut(i) {
+      const list = loadShortcuts();
+      const actCnt = list.filter(s => s.active).length;
+      if (!list[i].active && actCnt >= MAX_ACTIVE) return;
+      list[i].active = !list[i].active;
+      saveShortcuts(list);
+      renderAppsBar();
+      renderShortcutSettings();
+    }
+
+    function moveShortcut(i, dir) {
+      const list = loadShortcuts();
+      const j = i + dir;
+      if (j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      saveShortcuts(list);
+      renderAppsBar();
+      renderShortcutSettings();
+    }
+
+    function deleteShortcut(i) {
+      const list = loadShortcuts();
+      if (list[i].preset) return;
+      list.splice(i, 1);
+      saveShortcuts(list);
+      renderAppsBar();
+      renderShortcutSettings();
+    }
+
+    function showAddShortcut() {
+      document.getElementById('customForm').style.display = 'flex';
+      document.getElementById('addShortcutBtn').style.display = 'none';
+    }
+
+    function cancelCustomShortcut() {
+      document.getElementById('customForm').style.display = 'none';
+      document.getElementById('addShortcutBtn').style.display = '';
+      document.getElementById('customName').value = '';
+      document.getElementById('customUrl').value  = '';
+    }
+
+    function saveCustomShortcut() {
+      const name = document.getElementById('customName').value.trim();
+      let   url  = document.getElementById('customUrl').value.trim();
+      if (!name || !url) return;
+      if (!url.startsWith('http')) url = 'https://' + url;
+      const list    = loadShortcuts();
+      const actCnt  = list.filter(s => s.active).length;
+      list.push({ id: 'c_' + Date.now(), name, url, color: '#4b5563', icon: name[0].toUpperCase(), preset: false, active: actCnt < MAX_ACTIVE });
+      saveShortcuts(list);
+      renderAppsBar();
+      renderShortcutSettings();
+      cancelCustomShortcut();
+    }
+
+    function launch(url) {
+      const browser = localStorage.getItem('rc_browser') || 'default';
+      post('/launch', { url, browser });
+    }
+
+    // ── Browser picker ─────────────────────────────────────────
+    function initBrowserPicker() {
+      const saved = localStorage.getItem('rc_browser') || 'default';
+      document.querySelectorAll('#browserPicker button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.browser === saved);
+        btn.addEventListener('click', () => {
+          localStorage.setItem('rc_browser', btn.dataset.browser);
+          document.querySelectorAll('#browserPicker button').forEach(b =>
+            b.classList.toggle('active', b === btn));
+        });
+      });
+    }
+
+    // ── Instalar como app ─────────────────────────────────────
+    const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                         || window.navigator.standalone === true;
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    async function installApp() {
+      if (isStandalone) return;
+
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          const btn = document.getElementById('installBtn');
+          btn.textContent = '✓ Instalado!';
+          btn.disabled = true;
+        }
+        return;
+      }
+
+      // iOS ou Chrome sem prompt (HTTP local): mostrar instruções manuais
+      const steps = isIOS
+        ? ['Toque no botão compartilhar (□↑) na barra do Safari',
+           'Selecione "Adicionar à Tela de Início"',
+           'Confirme tocando em "Adicionar"']
+        : ['Toque no menu (⋮) do Chrome',
+           'Selecione "Adicionar à tela inicial"',
+           'Confirme tocando em "Adicionar"'];
+
+      const stepsDiv = document.getElementById('installSteps');
+      stepsDiv.innerHTML = steps
+        .map((s, i) => `<div class="install-step"><span class="num">${i + 1}</span>${s}</div>`)
+        .join('');
+      stepsDiv.style.display = 'flex';
+    }
+
+    function initSettings() {
+      document.getElementById('cursorSlider').value = cursorSens;
+      document.getElementById('cursorVal').textContent = cursorSens.toFixed(1);
+      document.getElementById('scrollSlider').value = scrollAmt;
+      document.getElementById('scrollVal').textContent = scrollAmt;
+
+      const btn = document.getElementById('installBtn');
+      if (isStandalone) {
+        btn.textContent = '✓ Já instalado como app';
+        btn.disabled = true;
+      }
+
+      renderShortcutSettings();
+      initBrowserPicker();
+    }
+
+    function updateCursorSens(v) {
+      cursorSens = parseFloat(v);
+      document.getElementById('cursorVal').textContent = cursorSens.toFixed(1);
+      localStorage.setItem('rc_cursor_sens', cursorSens);
+    }
+
+    function updateScrollSens(v) {
+      scrollAmt = parseInt(v);
+      document.getElementById('scrollVal').textContent = scrollAmt;
+      localStorage.setItem('rc_scroll_amt', scrollAmt);
+    }
+
+    async function openSettings() {
+      document.getElementById('settingsOverlay').classList.add('open');
+      document.getElementById('settingsPanel').classList.add('open');
+      try {
+        const r = await fetch('/has-apk');
+        const j = await r.json();
+        document.getElementById('apkSection').style.display = j.available ? '' : 'none';
+      } catch {}
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsOverlay').classList.remove('open');
+      document.getElementById('settingsPanel').classList.remove('open');
+    }
+
+    function reconnect() {
+      closeSettings();
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage('reconnect');
+      }
+    }
+
+    initSettings();
+    renderAppsBar();
+
+    // ── Trackpad ──────────────────────────────────────────────
+    const trackpad = document.getElementById('trackpad');
+    let lastX = null, lastY = null;
+    let pendingDx = 0, pendingDy = 0;
+    let sending = false;
+
+    trackpad.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      lastX = t.clientX;
+      lastY = t.clientY;
+    }, { passive: false });
+
+    trackpad.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      pendingDx += (t.clientX - lastX) * cursorSens;
+      pendingDy += (t.clientY - lastY) * cursorSens;
+      lastX = t.clientX;
+      lastY = t.clientY;
+      flushMove();
+    }, { passive: false });
+
+    async function flushMove() {
+      if (sending) return;
+      const dx = Math.round(pendingDx);
+      const dy = Math.round(pendingDy);
+      if (dx === 0 && dy === 0) return;
+      pendingDx -= dx;
+      pendingDy -= dy;
+      sending = true;
+      await post('/mouse/move', { dx, dy });
+      sending = false;
+      if (Math.abs(pendingDx) >= 1 || Math.abs(pendingDy) >= 1) flushMove();
+    }
+
+    // ── Click buttons ─────────────────────────────────────────
+    let leftTaps = 0, leftTimer = null;
+    document.getElementById('leftBtn').addEventListener('touchend', e => {
+      e.preventDefault();
+      leftTaps++;
+      clearTimeout(leftTimer);
+      leftTimer = setTimeout(() => {
+        post('/mouse/click', { button: 'left', double: leftTaps >= 2 });
+        leftTaps = 0;
+      }, 300);
+    });
+
+    document.getElementById('rightBtn').addEventListener('touchend', e => {
+      e.preventDefault();
+      post('/mouse/click', { button: 'right' });
+    });
+
+    // ── Scroll wheel ──────────────────────────────────────────
+    const scrollWheel = document.getElementById('scrollWheel');
+    const scrollDrum  = document.getElementById('scrollDrum');
+    let swLastY = null, swPending = 0, swAngle = 0;
+
+    scrollWheel.addEventListener('touchstart', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      swLastY   = e.touches[0].clientY;
+      swPending = 0;
+      swAngle   = 0;
+      scrollDrum.style.transition = 'none';
+      scrollDrum.style.transform  = 'rotateX(0deg)';
+    }, { passive: false });
+
+    scrollWheel.addEventListener('touchmove', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dy = e.touches[0].clientY - swLastY;
+      swLastY = e.touches[0].clientY;
+
+      swAngle += dy * 1.8;
+      scrollDrum.style.transform = `rotateX(${-swAngle}deg)`;
+
+      swPending += dy;
+      while (swPending >= 15)  { post('/mouse/scroll', { amount: -scrollAmt }); swPending -= 15; }
+      while (swPending <= -15) { post('/mouse/scroll', { amount:  scrollAmt }); swPending += 15; }
+    }, { passive: false });
+
+    scrollWheel.addEventListener('touchend', () => {
+      scrollDrum.style.transition = 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
+      scrollDrum.style.transform  = 'rotateX(0deg)';
+      swAngle = 0;
+    });
+
+    // ── Keyboard ──────────────────────────────────────────────
+    function key(k) {
+      post('/key', { key: k });
+    }
+
+    function sendText() {
+      const input = document.getElementById('typeInput');
+      const text = input.value.trim();
+      if (!text) return;
+      post('/type', { text });
+      input.value = '';
+    }
+
+    document.getElementById('typeInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); sendText(); }
+    });
+
+    // ── PWA service worker ────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+    }
+
+    // ── Fetch helper ──────────────────────────────────────────
+    function post(path, body) {
+      return fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(() => {});
+    }
+  </script>
+</body>
+</html>

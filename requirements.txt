@@ -1,0 +1,6 @@
+flask
+pyautogui
+pyperclip
+pillow
+pystray
+qrcode[pil]
