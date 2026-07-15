@@ -12,12 +12,34 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#7c3aed"
       },
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-navigation-bar",
-      ["expo-camera", { "cameraPermission": "Permite escanear o QR Code do servidor" }],
-      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
-    ]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite escanear o QR Code do servidor"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "expo-navigation-bar": {},
+      "eas": {
+        "projectId": "dee7498c-641e-452d-9eca-aeb2ef921adf"
+      }
+    },
+    "owner": "igorarrhurdev"
   }
 }
