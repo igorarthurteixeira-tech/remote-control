@@ -187,6 +187,11 @@
       touch-action: none;
       cursor: crosshair;
       position: relative;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #trackpad.dragging {
+      background: #241b3d;
+      border-color: #7c3aed;
     }
 
     /* ── Keys panel ── */
@@ -775,21 +780,55 @@
     let pendingDx = 0, pendingDy = 0;
     let sending = false;
 
+    // Pressionar e segurar sem mover ativa o "arrastar" (mouse down);
+    // soltar solta o botão (mouse up). Mover antes disso é só cursor normal.
+    const DRAG_HOLD_MS = 350;
+    const DRAG_MOVE_TOLERANCE = 8;
+    let dragTimer = null;
+    let dragging = false;
+    let startX = null, startY = null;
+
+    function cancelDragTimer() {
+      clearTimeout(dragTimer);
+      dragTimer = null;
+    }
+
     trackpad.addEventListener('touchstart', e => {
       e.preventDefault();
       const t = e.touches[0];
-      lastX = t.clientX;
-      lastY = t.clientY;
+      lastX = startX = t.clientX;
+      lastY = startY = t.clientY;
+      cancelDragTimer();
+      dragTimer = setTimeout(() => {
+        dragging = true;
+        trackpad.classList.add('dragging');
+        if (navigator.vibrate) navigator.vibrate(25);
+        post('/mouse/down', { button: 'left' });
+      }, DRAG_HOLD_MS);
     }, { passive: false });
 
     trackpad.addEventListener('touchmove', e => {
       e.preventDefault();
       const t = e.touches[0];
+      if (dragTimer && !dragging) {
+        const moved = Math.hypot(t.clientX - startX, t.clientY - startY);
+        if (moved > DRAG_MOVE_TOLERANCE) cancelDragTimer();
+      }
       pendingDx += (t.clientX - lastX) * cursorSens;
       pendingDy += (t.clientY - lastY) * cursorSens;
       lastX = t.clientX;
       lastY = t.clientY;
       flushMove();
+    }, { passive: false });
+
+    trackpad.addEventListener('touchend', e => {
+      e.preventDefault();
+      cancelDragTimer();
+      if (dragging) {
+        dragging = false;
+        trackpad.classList.remove('dragging');
+        post('/mouse/up', { button: 'left' });
+      }
     }, { passive: false });
 
     async function flushMove() {

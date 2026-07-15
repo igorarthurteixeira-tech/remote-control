@@ -230,6 +230,20 @@ def mouse_click():
     return jsonify(ok=True)
 
 
+@app.route('/mouse/down', methods=['POST'])
+def mouse_down():
+    button = request.json.get('button', 'left')
+    pyautogui.mouseDown(button=button)
+    return jsonify(ok=True)
+
+
+@app.route('/mouse/up', methods=['POST'])
+def mouse_up():
+    button = request.json.get('button', 'left')
+    pyautogui.mouseUp(button=button)
+    return jsonify(ok=True)
+
+
 @app.route('/mouse/scroll', methods=['POST'])
 def mouse_scroll():
     pyautogui.scroll(request.json.get('amount', 3))
@@ -376,6 +390,35 @@ def generate_static_assets(ip, port):
             print(f'Aviso QR APK: {e}')
 
 
+# ── Iniciar com o Windows ────────────────────────────────────────────────────
+
+AUTOSTART_TASK_NAME = 'RemoteControlAutostart'
+
+
+def is_autostart_enabled():
+    result = subprocess.run(
+        ['schtasks', '/query', '/tn', AUTOSTART_TASK_NAME],
+        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    return result.returncode == 0
+
+
+def enable_autostart():
+    exe = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
+    subprocess.run(
+        ['schtasks', '/create', '/tn', AUTOSTART_TASK_NAME,
+         '/tr', f'"{exe}"', '/sc', 'onlogon', '/rl', 'highest', '/f'],
+        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
+def disable_autostart():
+    subprocess.run(
+        ['schtasks', '/delete', '/tn', AUTOSTART_TASK_NAME, '/f'],
+        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
 # ── Bandeja do sistema ───────────────────────────────────────────────────────
 
 def run_tray(ip, port):
@@ -413,6 +456,13 @@ def run_tray(ip, port):
         icon.stop()
         os._exit(0)
 
+    def toggle_autostart(icon, item):
+        if is_autostart_enabled():
+            disable_autostart()
+        else:
+            enable_autostart()
+        icon.update_menu()
+
     def uninstall(icon, item):
         import ctypes, shutil, time
         resp = ctypes.windll.user32.MessageBoxW(
@@ -425,6 +475,7 @@ def run_tray(ip, port):
             return
         icon.stop()
         time.sleep(0.5)
+        disable_autostart()
         desktop = os.path.join(os.environ.get('USERPROFILE', os.path.expanduser('~')), 'Desktop')
         lnk = os.path.join(desktop, 'Remote Control.lnk')
         if os.path.exists(lnk):
@@ -442,6 +493,8 @@ def run_tray(ip, port):
         pystray.MenuItem(f'http://{ip}:{port}', show_ip, default=True),
         pystray.MenuItem('Abrir painel',      show_panel),
         pystray.MenuItem('Mostrar QR Code',   show_qr),
+        pystray.MenuItem('Iniciar com o Windows', toggle_autostart,
+                          checked=lambda item: is_autostart_enabled()),
         pystray.MenuItem('Reiniciar servidor', restart),
         pystray.MenuItem('Parar servidor',     stop),
         pystray.Menu.SEPARATOR,
@@ -550,11 +603,13 @@ def run_panel(ip, port):
         w.configure(state='disabled')
 
     def mk(txt, col, cmd):
-        tk.Button(btn_area, text=txt, font=('Segoe UI', 10),
-                  bg=col, fg=FG, relief='flat', bd=0,
-                  activebackground=col, activeforeground=FG,
-                  cursor='hand2', pady=7, anchor='w', padx=10,
-                  command=cmd).pack(fill='x', pady=2)
+        btn = tk.Button(btn_area, text=txt, font=('Segoe UI', 10),
+                         bg=col, fg=FG, relief='flat', bd=0,
+                         activebackground=col, activeforeground=FG,
+                         cursor='hand2', pady=7, anchor='w', padx=10,
+                         command=cmd)
+        btn.pack(fill='x', pady=2)
+        return btn
 
     def do_restart():
         def _go():
@@ -582,8 +637,21 @@ def run_panel(ip, port):
                 root.after(0, lambda: log(f'Erro ao atualizar: {e}\n'))
         threading.Thread(target=_go, daemon=True).start()
 
+    def autostart_label():
+        return ('✓  Iniciar com o Windows' if is_autostart_enabled()
+                else '☐  Iniciar com o Windows')
+
+    def do_toggle_autostart():
+        if is_autostart_enabled():
+            disable_autostart()
+        else:
+            enable_autostart()
+        autostart_btn.configure(text=autostart_label())
+        log('✓ Preferência de início com o Windows atualizada.\n')
+
     mk('↺  Reiniciar servidor', '#1e3a5f', do_restart)
     mk('⟳  Atualizar assets',   '#14532d', do_refresh)
+    autostart_btn = mk(autostart_label(), '#374151', do_toggle_autostart)
     mk('✕  Parar servidor',      '#450a0a', lambda: os._exit(0))
 
     # ── Terminal ─────────────────────────────────────────────

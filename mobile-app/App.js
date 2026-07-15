@@ -81,6 +81,13 @@ export default function App() {
     }, RETRY_BACKOFF_MS);
   }, [goToSetup]);
 
+  // Ação explícita do usuário (botão "Trocar servidor" na página web) — diferente de
+  // uma falha de conexão, não deve tentar reconectar no mesmo IP nem re-buscar sozinho.
+  const handleChangeServer = useCallback(() => {
+    AsyncStorage.removeItem(STORAGE_KEY);
+    goToSetup('Escolha um novo servidor.');
+  }, [goToSetup]);
+
   const handleManualConnect = useCallback(async () => {
     const candidate = inputIp.trim();
     if (!candidate) return;
@@ -147,7 +154,7 @@ export default function App() {
           onError={handleWebViewFailure}
           onHttpError={handleWebViewFailure}
           onMessage={(e) => {
-            if (e.nativeEvent.data === 'reconnect') handleWebViewFailure();
+            if (e.nativeEvent.data === 'reconnect') handleChangeServer();
           }}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
