@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Remote Control",
+    "slug": "remote-control",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.localremote.control",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#7c3aed"
+      },
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      "expo-navigation-bar",
+      ["expo-camera", { "cameraPermission": "Permite escanear o QR Code do servidor" }],
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+    ]
+  }
+}

@@ -100,6 +100,11 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/ping')
+def ping():
+    return jsonify(app='remote-control', ok=True)
+
+
 @app.route('/qr')
 def qr_page():
     ip         = get_local_ip()
