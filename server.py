@@ -7,6 +7,7 @@ import subprocess
 import sys
 import os
 import json
+import ctypes
 
 
 def _resource_dir():
@@ -95,8 +96,21 @@ KEY_MAP = {
 
 # ── Rotas principais ────────────────────────────────────────────────────────
 
+def _force_show_cursor():
+    try:
+        user32 = ctypes.windll.user32
+        for _ in range(10):
+            if user32.ShowCursor(True) >= 0:
+                break
+    except Exception as e:
+        print(f'Aviso ShowCursor: {e}')
+
+
 @app.route('/')
 def index():
+    # "Ocultar ponteiro ao digitar" do Windows deixa o cursor sumido depois que
+    # o celular conecta e manda teclas; força ele a reaparecer.
+    _force_show_cursor()
     return render_template('index.html')
 
 
@@ -241,6 +255,7 @@ def mouse_down():
 def mouse_up():
     button = request.json.get('button', 'left')
     pyautogui.mouseUp(button=button)
+    _force_show_cursor()
     return jsonify(ok=True)
 
 

@@ -780,40 +780,30 @@
     let pendingDx = 0, pendingDy = 0;
     let sending = false;
 
-    // Pressionar e segurar sem mover ativa o "arrastar" (mouse down);
-    // soltar solta o botão (mouse up). Mover antes disso é só cursor normal.
-    const DRAG_HOLD_MS = 350;
-    const DRAG_MOVE_TOLERANCE = 8;
-    let dragTimer = null;
+    // Toque, solta o dedo, e no segundo toque (dentro da janela) arrastar
+    // até soltar. Um toque isolado é só movimento normal do cursor.
+    const DOUBLE_TOUCH_WINDOW_MS = 350;
     let dragging = false;
-    let startX = null, startY = null;
-
-    function cancelDragTimer() {
-      clearTimeout(dragTimer);
-      dragTimer = null;
-    }
+    let armedAt = 0;
 
     trackpad.addEventListener('touchstart', e => {
       e.preventDefault();
       const t = e.touches[0];
-      lastX = startX = t.clientX;
-      lastY = startY = t.clientY;
-      cancelDragTimer();
-      dragTimer = setTimeout(() => {
+      lastX = t.clientX;
+      lastY = t.clientY;
+
+      if (armedAt && (Date.now() - armedAt) < DOUBLE_TOUCH_WINDOW_MS) {
         dragging = true;
+        armedAt = 0;
         trackpad.classList.add('dragging');
         if (navigator.vibrate) navigator.vibrate(25);
         post('/mouse/down', { button: 'left' });
-      }, DRAG_HOLD_MS);
+      }
     }, { passive: false });
 
     trackpad.addEventListener('touchmove', e => {
       e.preventDefault();
       const t = e.touches[0];
-      if (dragTimer && !dragging) {
-        const moved = Math.hypot(t.clientX - startX, t.clientY - startY);
-        if (moved > DRAG_MOVE_TOLERANCE) cancelDragTimer();
-      }
       pendingDx += (t.clientX - lastX) * cursorSens;
       pendingDy += (t.clientY - lastY) * cursorSens;
       lastX = t.clientX;
@@ -823,11 +813,12 @@
 
     trackpad.addEventListener('touchend', e => {
       e.preventDefault();
-      cancelDragTimer();
       if (dragging) {
         dragging = false;
         trackpad.classList.remove('dragging');
         post('/mouse/up', { button: 'left' });
+      } else {
+        armedAt = Date.now();
       }
     }, { passive: false });
 

@@ -5,10 +5,13 @@ export default StyleSheet.create({
   setup: { flex: 1, backgroundColor: '#111827' },
   setupInner: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   logo: { fontSize: 48, marginBottom: 8 },
-  title: { color: '#f3f4f6', fontSize: 24, fontWeight: '700', marginBottom: 6 },
+  title: {
+    color: '#f3f4f6', fontSize: 24, fontWeight: '700', marginBottom: 6,
+    width: '100%', textAlign: 'center',
+  },
   subtitle: {
     color: '#9ca3af', fontSize: 13, textAlign: 'center',
-    marginBottom: 24, lineHeight: 18,
+    marginBottom: 24, lineHeight: 18, width: '100%',
   },
   qrBtn: {
     backgroundColor: '#7c3aed', borderRadius: 12,
