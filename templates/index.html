@@ -583,10 +583,21 @@
     let scrollAmt  = parseInt(localStorage.getItem('rc_scroll_amt')   || '3');
     let singleTapClick = localStorage.getItem('rc_single_tap_click') !== 'false';
 
+    // O app mobile guarda essas configurações no celular (fora do WebView) e
+    // reinjeta a cada conexão, já que o IP do PC muda e localStorage é por origem.
+    function notifyNativeSettings() {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'settings', cursorSens, scrollAmt, singleTapClick,
+        }));
+      }
+    }
+
     function toggleSingleTapClick() {
       singleTapClick = !singleTapClick;
       localStorage.setItem('rc_single_tap_click', singleTapClick);
       document.getElementById('singleTapToggle').classList.toggle('on', singleTapClick);
+      notifyNativeSettings();
     }
 
     function toggleFullscreen() {
@@ -782,12 +793,14 @@
       cursorSens = parseFloat(v);
       document.getElementById('cursorVal').textContent = cursorSens.toFixed(1);
       localStorage.setItem('rc_cursor_sens', cursorSens);
+      notifyNativeSettings();
     }
 
     function updateScrollSens(v) {
       scrollAmt = parseInt(v);
       document.getElementById('scrollVal').textContent = scrollAmt;
       localStorage.setItem('rc_scroll_amt', scrollAmt);
+      notifyNativeSettings();
     }
 
     async function openSettings() {

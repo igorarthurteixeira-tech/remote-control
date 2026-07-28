@@ -11,6 +11,7 @@ import { discoverServer, verifyServer } from './discovery';
 import styles from './styles';
 
 const STORAGE_KEY = 'remote-control:last-ip';
+const SETTINGS_KEY = 'remote-control:settings';
 const MAX_WEBVIEW_FAILURES = 3;
 const RETRY_BACKOFF_MS = 1500;
 
@@ -24,6 +25,9 @@ export default function App() {
 
   const failuresRef = useRef(0);
   const webviewRef = useRef(null);
+  // Configurações (sensibilidade etc.) ficam salvas no celular, não na página —
+  // o IP do PC muda a cada conexão (DHCP), e localStorage é isolado por origem.
+  const settingsRef = useRef(null);
 
   const goToSetup = useCallback((message) => {
     failuresRef.current = 0;
@@ -51,6 +55,7 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      settingsRef.current = await AsyncStorage.getItem(SETTINGS_KEY);
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
       if (!saved) {
         runDiscovery();
@@ -153,8 +158,32 @@ export default function App() {
           source={{ uri: `http://${ip}:5000` }}
           onError={handleWebViewFailure}
           onHttpError={handleWebViewFailure}
+          injectedJavaScriptBeforeContentLoaded={
+            settingsRef.current
+              ? `(function(){try{var s=${settingsRef.current};
+                  if(s.cursorSens!=null)localStorage.setItem('rc_cursor_sens',s.cursorSens);
+                  if(s.scrollAmt!=null)localStorage.setItem('rc_scroll_amt',s.scrollAmt);
+                  if(s.singleTapClick!=null)localStorage.setItem('rc_single_tap_click',String(s.singleTapClick));
+                }catch(e){}})();true;`
+              : undefined
+          }
           onMessage={(e) => {
-            if (e.nativeEvent.data === 'reconnect') handleChangeServer();
+            const data = e.nativeEvent.data;
+            if (data === 'reconnect') {
+              handleChangeServer();
+              return;
+            }
+            try {
+              const msg = JSON.parse(data);
+              if (msg && msg.type === 'settings') {
+                const { type, ...settings } = msg;
+                const json = JSON.stringify(settings);
+                settingsRef.current = json;
+                AsyncStorage.setItem(SETTINGS_KEY, json);
+              }
+            } catch {
+              // mensagem desconhecida, ignora
+            }
           }}
           allowsInlineMediaPlayback
           mediaPlaybackRequiresUserAction={false}
