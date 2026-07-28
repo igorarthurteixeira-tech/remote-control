@@ -46,7 +46,24 @@
       cursor: pointer;
     }
     .media-bar button:active { background: #6d28d9; }
-    #settingsBtn { font-size: 18px; }
+    #settingsBtn, #fullscreenBtn { font-size: 18px; }
+
+    /* ── Toggle switch ── */
+    .toggle-row {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .toggle-switch {
+      position: relative; width: 44px; height: 26px; flex-shrink: 0;
+      background: #374151; border-radius: 13px; border: none; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .toggle-switch::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #f3f4f6; transition: transform 0.15s;
+    }
+    .toggle-switch.on { background: #7c3aed; }
+    .toggle-switch.on::after { transform: translateX(18px); }
 
     /* ── Apps bar ── */
     .apps-bar {
@@ -419,6 +436,7 @@
     <button onclick="key('volumedown')">🔉</button>
     <button onclick="key('volumeup')">🔊</button>
     <button onclick="key('volumemute')">🔇</button>
+    <button id="fullscreenBtn" onclick="toggleFullscreen()">⛶</button>
     <button id="settingsBtn" onclick="openSettings()">⚙️</button>
   </div>
 
@@ -482,6 +500,13 @@
     <button onclick="reconnect()" style="width:100%;background:#1f2937;border:1px solid #374151;color:#f3f4f6;border-radius:10px;padding:12px;font-size:14px;cursor:pointer;text-align:left;">
       🔌 Trocar servidor
     </button>
+
+    <div class="setting-item">
+      <div class="toggle-row">
+        <span>Toque único no trackpad clica</span>
+        <button class="toggle-switch" id="singleTapToggle" onclick="toggleSingleTapClick()"></button>
+      </div>
+    </div>
 
     <div class="setting-item">
       <div class="setting-label">
@@ -556,6 +581,21 @@
     // ── Configurações (localStorage) ──────────────────────────
     let cursorSens = parseFloat(localStorage.getItem('rc_cursor_sens') || '2.2');
     let scrollAmt  = parseInt(localStorage.getItem('rc_scroll_amt')   || '3');
+    let singleTapClick = localStorage.getItem('rc_single_tap_click') !== 'false';
+
+    function toggleSingleTapClick() {
+      singleTapClick = !singleTapClick;
+      localStorage.setItem('rc_single_tap_click', singleTapClick);
+      document.getElementById('singleTapToggle').classList.toggle('on', singleTapClick);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    }
 
     // ── Atalhos de apps ────────────────────────────────────────
     const MAX_ACTIVE = 5;
@@ -726,6 +766,7 @@
       document.getElementById('cursorVal').textContent = cursorSens.toFixed(1);
       document.getElementById('scrollSlider').value = scrollAmt;
       document.getElementById('scrollVal').textContent = scrollAmt;
+      document.getElementById('singleTapToggle').classList.toggle('on', singleTapClick);
 
       const btn = document.getElementById('installBtn');
       if (isStandalone) {
@@ -780,30 +821,44 @@
     let pendingDx = 0, pendingDy = 0;
     let sending = false;
 
-    // Toque, solta o dedo, e no segundo toque (dentro da janela) arrastar
-    // até soltar. Um toque isolado é só movimento normal do cursor.
+    // Toque sem mover = clique. Dois toques seguidos (o 2º com movimento) = arrastar.
+    // Um toque que já sai movendo (as "remadas" pra correr o cursor) é sempre só
+    // movimento, mesmo repetido em sequência rápida — nunca vira clique nem arraste.
     const DOUBLE_TOUCH_WINDOW_MS = 350;
+    const TAP_MOVE_TOLERANCE = 10;
     let dragging = false;
     let armedAt = 0;
+    let touchStartX = null, touchStartY = null;
+    let movedSignificantly = false;
+    let isSecondTouchCandidate = false;
 
     trackpad.addEventListener('touchstart', e => {
       e.preventDefault();
       const t = e.touches[0];
-      lastX = t.clientX;
-      lastY = t.clientY;
-
-      if (armedAt && (Date.now() - armedAt) < DOUBLE_TOUCH_WINDOW_MS) {
-        dragging = true;
-        armedAt = 0;
-        trackpad.classList.add('dragging');
-        if (navigator.vibrate) navigator.vibrate(25);
-        post('/mouse/down', { button: 'left' });
-      }
+      lastX = touchStartX = t.clientX;
+      lastY = touchStartY = t.clientY;
+      movedSignificantly = false;
+      isSecondTouchCandidate = armedAt && (Date.now() - armedAt) < DOUBLE_TOUCH_WINDOW_MS;
+      armedAt = 0;
     }, { passive: false });
 
     trackpad.addEventListener('touchmove', e => {
       e.preventDefault();
       const t = e.touches[0];
+
+      if (!movedSignificantly) {
+        const moved = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+        if (moved > TAP_MOVE_TOLERANCE) {
+          movedSignificantly = true;
+          if (isSecondTouchCandidate && !dragging) {
+            dragging = true;
+            trackpad.classList.add('dragging');
+            if (navigator.vibrate) navigator.vibrate(25);
+            post('/mouse/down', { button: 'left' });
+          }
+        }
+      }
+
       pendingDx += (t.clientX - lastX) * cursorSens;
       pendingDy += (t.clientY - lastY) * cursorSens;
       lastX = t.clientX;
@@ -817,7 +872,8 @@
         dragging = false;
         trackpad.classList.remove('dragging');
         post('/mouse/up', { button: 'left' });
-      } else {
+      } else if (!movedSignificantly) {
+        if (singleTapClick) post('/mouse/click', { button: 'left' });
         armedAt = Date.now();
       }
     }, { passive: false });
